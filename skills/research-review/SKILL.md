@@ -54,3 +54,19 @@ argument-hint: "[plan|coding|test|coding+test] [models...]"
    > 2. **Self-Test Audit**: Check whether the Main Agent's test genuinely verifies these invariants and edge cases, or if it suffers from confirmation bias (only testing happy paths, mocking away core logic, or weak assertions). Emit `- Validation request: <exact check>` for any missing edge-case test.
    > State `Review coverage: FULL|PARTIAL - <inspected files>` and end with `Review verdict: APPROVED|FINDINGS`."
 3. **Adjudicate & Closure**: Fix accepted code bugs and fulfill valid `Validation requests`; if non-trivial changes were made, use `resume_from` on both reviewers to verify the delta.
+
+---
+
+## 3. Lightweight Ledger (`docs/review-log.md`)
+
+After each review gate completes, append a concise 5–10 line English entry to `docs/review-log.md` in the current project (create the file if absent). This preserves `subagent_id` handles across context compaction and maintains an experimental audit trail:
+
+```markdown
+## [YYYY-MM-DD] <Short Task Title> (<Mode A / B / C / B+C>)
+- **Assumptions / Scope**: <1-line summary of key design assumptions and touched files>
+- **Reviewers**: `deepseek-v4.1-flash` (`id: <subagent_id>`), `glm-5.3` (`id: <subagent_id>`)
+- **Adjudication**:
+  - `[ACCEPTED]` `<file:line>` — <concise bug/flaw and how it was fixed>
+  - `[REJECTED]` `<file:line>` — <why the reviewer finding was a false positive, with math/code evidence>
+- **Verdict & Proof**: `APPROVED` (<1-line test/smoke verification result>)
+```
