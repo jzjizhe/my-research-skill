@@ -1,6 +1,6 @@
 ---
 name: research-review
-description: On-demand dual-model review via native `spawn_subagent` (defaulting to mcli models `deepseek-v4.1-flash` and `glm-5.3`, or user-specified models) for standalone or combined research actions (Plan, Coding, Test, or Coding+Test together). Use when designing an experiment plan, reviewing post-training/RL/masking code changes, or auditing test validity.
+description: On-demand dual-model review via native `spawn_subagent` using the dedicated `research-reviewer` role (mandatory default models `deepseek-v4.1-flash` and `glm-5.3`, both fixed at reasoning effort `max`, with explicit user overrides) for standalone or combined research actions (Plan, Coding, Test, or Coding+Test together). Use when designing an experiment plan, reviewing post-training/RL/masking code changes, or auditing test validity.
 argument-hint: "[plan|coding|test|coding+test] [models...]"
 ---
 
@@ -13,13 +13,18 @@ argument-hint: "[plan|coding|test|coding+test] [models...]"
 
 ## 1. Reviewer Subagent Dispatch (`spawn_subagent`)
 
-- **Default Reviewers (`channel=mcli`)**: Call `spawn_subagent` concurrently to launch two parallel reviewers and wait for both via `get_command_or_subagent_output`:
-  - Subagent 1: `model: "deepseek-v4.1-flash"` (mcli channel)
-  - Subagent 2: `model: "glm-5.3"` (mcli channel)
-- **User Override**: If the user specifies other models (e.g., `kimi-k3.1-pro`, `MiniMax-M3.1-Flash`, `deepseek-v4-pro`, or `friday/*` / `catpaw-ide/*` slugs), pass the user-specified `model` slugs to `spawn_subagent`.
+- **Mandatory Default Reviewers**: This is a standing, explicit user model and role selection. Always launch both reviewers with `subagent_type: "research-reviewer"`; launch Subagent 1 with `model: "deepseek-v4.1-flash"` and Subagent 2 with `model: "glm-5.3"`. Never omit these fields, inherit the main agent's model, or silently substitute another model or role. Launch both concurrently and wait for both via `get_command_or_subagent_output`.
+- **Canonical Calls**: Pass each JSON object below as the arguments to `spawn_subagent`, with a focused self-contained review prompt replacing the placeholder:
+  ```json
+  {"description":"Research review A","prompt":"<focused review prompt>","subagent_type":"research-reviewer","model":"deepseek-v4.1-flash","background":true}
+  {"description":"Research review B","prompt":"<focused review prompt>","subagent_type":"research-reviewer","model":"glm-5.3","background":true}
+  ```
+- **Dedicated Role and Fixed Effort**: `~/.magent/roles/research-reviewer.toml` fixes `reasoning_effort = "max"` and `default_capability_mode = "read-only"`; `~/.magent/agents/research-reviewer.md` binds that role to the spawnable agent type. Role defaults take precedence over the parent session, so both reviewers run at `max` regardless of the parent's effort. Do not add an unsupported spawn-level `effort` field. Record `max (role)` in the review log.
+- **Availability Check**: Before dispatch, confirm `magent inspect --json` lists `research-reviewer` and the role file still contains `reasoning_effort = "max"`. A session started before these definitions were created may need a restart before `subagent_type` appears in the tool schema; surface this instead of bypassing the role.
+- **Explicit User Override**: A user may replace either default model by explicitly naming another supported slug that accepts `max`. Record the actual models and `max (role)` effort in the review log.
 - **Incremental Closure (`resume_from`)**:
   - **Discovery (Round 1)**: Spawn fresh subagents with only the minimal artifact (Plan, `git diff`, test code + execution stdout/stderr) and key file paths—never pass your conversation history.
-  - **Closure (Round 2+, if fixes or extra tests were needed)**: Call `spawn_subagent` with `resume_from: "<subagent_id>"` for each reviewer, passing only the active findings and the fix/test delta so they verify the update without re-reading unchanged files.
+  - **Closure (Round 2+, if fixes or extra tests were needed)**: Call `spawn_subagent` with `resume_from: "<subagent_id>"` and `subagent_type: "research-reviewer"` for each reviewer, passing only the active findings and the fix/test delta so they verify the update without re-reading unchanged files. Omit `model` only on resume because the original reviewer model and role-fixed effort are retained.
 
 ## 2. Core Role Boundaries
 1. **Main Agent Runs Validation First**: Running a quick syntax/smoke test before dispatching reviewers is encouraged so reviewers don't waste effort on broken syntax. Pass your exact test command and output as `Main-agent validation evidence`.
@@ -64,7 +69,7 @@ After each review gate completes, append a concise 5–10 line English entry to 
 ```markdown
 ## [YYYY-MM-DD] <Short Task Title> (<Mode A / B / C / B+C>)
 - **Assumptions / Scope**: <1-line summary of key design assumptions and touched files>
-- **Reviewers**: `deepseek-v4.1-flash` (`id: <subagent_id>`), `glm-5.3` (`id: <subagent_id>`)
+- **Reviewers**: `deepseek-v4.1-flash` (`id: <subagent_id>`, `role: research-reviewer`, `effort: max (role)`), `glm-5.3` (`id: <subagent_id>`, `role: research-reviewer`, `effort: max (role)`) <!-- Replace model slugs after an explicit user override. -->
 - **Adjudication**:
   - `[ACCEPTED]` `<file:line>` — <concise bug/flaw and how it was fixed>
   - `[REJECTED]` `<file:line>` — <why the reviewer finding was a false positive, with math/code evidence>

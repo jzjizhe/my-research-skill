@@ -6,6 +6,10 @@ A lightweight, high-signal set of rules and skills tailored for **LLM & Agent Po
 
 ```text
 .
+├── agents/
+│   └── research-reviewer.md       # Spawnable agent type bound to the reviewer role
+├── roles/
+│   └── research-reviewer.toml     # Read-only reviewer role with reasoning effort fixed to max
 ├── rules/
 │   └── research-routing.md        # Global complexity & clarity router (~15 lines)
 └── skills/
@@ -20,7 +24,7 @@ A lightweight, high-signal set of rules and skills tailored for **LLM & Agent Po
 ## Core Features
 
 1. **`grill` (`/grill`)**: Interrogate open-ended research ideas before writing plans or code. Grounds questions in the actual codebase, exposes mathematical/tensor edge cases and baseline confounders, and recommends concrete defaults.
-2. **`research-review` (`/research-review`)**: Modular or combined review gates (`Mode A: Plan`, `Mode B: Coding`, `Mode C: Test`, `Mode B+C: Joint Coding & Test`) using native `spawn_subagent` with parallel read-only reviewers (defaulting to `mcli` models `deepseek-v4.1-flash` and `glm-5.3`, or user-specified models) and incremental `resume_from` closure.
+2. **`research-review` (`/research-review`)**: Modular or combined review gates (`Mode A: Plan`, `Mode B: Coding`, `Mode C: Test`, `Mode B+C: Joint Coding & Test`) using native `spawn_subagent` with the dedicated read-only `research-reviewer` role. Both default reviewers (`deepseek-v4.1-flash` and `glm-5.3`) are fixed at reasoning effort `max`, with explicit model overrides and incremental `resume_from` closure.
 3. **`evolve` (`/evolve`)**: Automatically separates codebase/framework pitfalls (routed to `AGENTS.md` / Memory) from workflow/reviewer blind spots (routed to `SKILL.md`), with strict line caps to prevent prompt bloat.
 
 ## Installation
@@ -28,7 +32,11 @@ A lightweight, high-signal set of rules and skills tailored for **LLM & Agent Po
 Copy the rules and skills into your global `~/.magent/` directory:
 
 ```bash
-mkdir -p ~/.magent/rules ~/.magent/skills
+mkdir -p ~/.magent/rules ~/.magent/skills ~/.magent/roles ~/.magent/agents
 cp rules/research-routing.md ~/.magent/rules/
 cp -R skills/* ~/.magent/skills/
+cp roles/research-reviewer.toml ~/.magent/roles/
+cp agents/research-reviewer.md ~/.magent/agents/
 ```
+
+Restart `magent` after installing the role and agent definitions so `research-reviewer` appears in the `spawn_subagent` type list. Verify discovery with `magent inspect --json`.
